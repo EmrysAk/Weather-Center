@@ -40,13 +40,19 @@ const PRIORITY = [
   'Excessive Heat Warning', 'Extreme Cold Warning', 'High Wind Warning', 'Flood Warning', 'Severe Thunderstorm Watch',
 ];
 
-const stateOfUgc = ugc => (String(ugc || '').match(/^([A-Z]{2})[CZ]\d{3}$/) || [])[1] || null;
+// UGC prefixes that are states or territories. Marine zones (AM, AN, GM,
+// LS, PK, PZ…) share the UGC shape but are not places anyone files from.
+const STATES = new Set('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR VI GU AS MP'.split(' '));
+const stateOfUgc = ugc => { const m = String(ugc || '').match(/^([A-Z]{2})[CZ]\d{3}$/); return m && STATES.has(m[1]) ? m[1] : null; };
+const MARINE = new Set(['AM', 'AN', 'GM', 'LE', 'LH', 'LM', 'LO', 'LS', 'LC', 'PH', 'PK', 'PM', 'PS', 'PZ', 'SL']);
+const marineOfUgc = ugc => { const m = String(ugc || '').match(/^([A-Z]{2})Z\d{3}$/); return m && MARINE.has(m[1]) ? m[1] : null; };
 
 function normalize(f) {
   const p = f.properties || {};
   const params = p.parameters || {};
   const ugc = (p.geocode && p.geocode.UGC) || [];
   const states = [...new Set(ugc.map(stateOfUgc).filter(Boolean))];
+  const marine = ugc.some(marineOfUgc) && !states.length;
   const geometry = f.geometry || null;
   const bbox = bboxOf(geometry);
   const headline = (params.NWSheadline && params.NWSheadline[0]) || p.headline || p.event;
@@ -64,6 +70,7 @@ function normalize(f) {
     headline,
     area: p.areaDesc || '',
     states,
+    marine,
     ugc,
     zones: p.affectedZones || [],
     sender: p.senderName || null,
@@ -186,4 +193,4 @@ async function summary() {
   };
 }
 
-module.exports = { load, list, byId, atPoint, geojson, summary, normalize, COLORS, PRIORITY, stateOfUgc };
+module.exports = { load, list, byId, atPoint, geojson, summary, normalize, COLORS, PRIORITY, stateOfUgc, marineOfUgc, STATES };

@@ -119,7 +119,7 @@
   const alertRow = a => `<div class="row" data-alert="${esc(a.id)}"><span class="sw" style="background:${esc(a.color)}"></span><div class="body"><div class="t">${esc(a.event)}${a.tornado_detection ? ` <span class="badge bad">${esc(a.tornado_detection)}</span>` : ''}${a.event_key && /Emergency/.test(a.event_key) ? ' <span class="badge sev-Extreme">EMERGENCY</span>' : ''}</div><div class="m">${esc(a.area)}</div><div class="m"><span class="badge sev-${esc(a.severity)}">${esc(a.severity)}</span>${esc(a.office || a.sender || '')} · ${fmt.until(a.expires)}</div></div></div>`;
   const bindAlertRows = root => $$('[data-alert]', root).forEach(r => { r.onclick = () => openAlert(r.dataset.alert); });
   const stamp = (d) => `<span class="stamp ${d && d.stale ? 'stale' : 'dim'}">${d && d.stale ? '⚠ stale · ' : ''}${d && d.fetched_at ? fmt.ago(d.fetched_at) : ''}</span>`;
-  const errCard = (title, e) => `<div class="card"><h2>${esc(title)}</h2><div class="err">${esc(e.message || e)}</div></div>`;
+  const errCard = (title, e) => `<div class="card"><h2>${esc(title)}</h2><div class="err">${esc(e.message || e)}</div>${e && e.stack ? `<pre class="dim small" style="white-space:pre-wrap">${esc(String(e.stack).split('\n').slice(0, 4).join('\n'))}</pre>` : ''}<button class="small" onclick="location.reload()">reload</button></div>`;
 
   // ─── Boot + header refresh ─────────────────────────────────────────
   async function boot() {
@@ -150,7 +150,12 @@
 
   // ─── Views ─────────────────────────────────────────────────────────
   const views = {};
-  function render(view, quiet) { const fn = views[view]; if (fn) fn(quiet).catch(e => { if (!quiet) $(`#view-${view}`).innerHTML = errCard(view, e); }); }
+  function render(view, quiet) {
+    const fn = views[view]; if (!fn) return;
+    const root = $(`#view-${view}`);
+    if (root && !root.children.length && view !== 'map') root.innerHTML = '<div class="card"><div class="empty">loading ' + esc(view) + '…</div></div>';
+    fn(quiet).catch(e => { if (!quiet) root.innerHTML = errCard(view, e); });
+  }
 
   // NOW
   views.now = async () => {
@@ -167,8 +172,8 @@
         <div class="tile ${count('Flash Flood Warning') + sum.flash_flood_emergencies ? 'warm' : ''}"><div class="k">Flash flood warnings</div><div class="v">${count('Flash Flood Warning') + sum.flash_flood_emergencies}</div><div class="s">${sum.flash_flood_emergencies ? `<b style="color:var(--tornado)">${sum.flash_flood_emergencies} EMERGENCY</b>` : `${count('Flood Warning')} river flood`}</div></div>
         <div class="tile cool"><div class="k">All active alerts</div><div class="v">${sum.total}</div><div class="s">${sum.warnings} warnings · ${sum.watches} watches · ${sum.advisories} advisories</div></div>
         <div class="tile ${trop && trop.storms.some(s => s.category && s.category.n >= 1) ? 'hot' : trop && trop.count ? 'warm' : ''}"><div class="k">Tropical systems</div><div class="v">${trop ? trop.count : '—'}</div><div class="s">${trop && trop.storms.length ? trop.storms.map(s => esc(s.name)).join(', ') : 'basins quiet'}</div></div>
-        <div class="tile" style="${spc1 && spc1.max_category ? `border-color:${spcColor(spc1.max_category)}` : ''}"><div class="k">SPC Day 1</div><div class="v" style="font-size:18px;margin-top:8px">${spc1 ? esc(spc1.max_label) : '—'}</div><div class="s">${spc1 && spc1.valid ? `valid ${esc(spc1.valid)}` : ''}</div></div>
-        <div class="tile" style="${space && space.kp.latest ? `border-color:${space.kp.color}` : ''}"><div class="k">Geomagnetic Kp</div><div class="v">${space && space.kp.latest ? space.kp.latest.kp.toFixed(1) : '—'}</div><div class="s">${space && space.kp.scale ? esc(space.kp.scale) : ''}</div></div>
+        <div class="tile" style="${spc1 && spc1.max_category ? `border-color:${spcColor(spc1.max_category)}` : ''}"><div class="k">SPC Day 1</div><div class="v" style="font-size:18px;margin-top:8px">${spc1 ? esc(spc1.max_label) : '—'}</div><div class="s">${spc1 && spc1.valid ? `valid ${spcTime(spc1.valid)} → ${spcTime(spc1.expire)}` : ''}</div></div>
+        <div class="tile" style="${space && space.kp.latest ? `border-color:${space.kp.color}` : ''}"><div class="k">Geomagnetic Kp</div><div class="v">${space && space.kp.latest && space.kp.latest.kp != null ? space.kp.latest.kp.toFixed(1) : '—'}</div><div class="s">${space && space.kp.scale ? esc(space.kp.scale) : ''}</div></div>
         <div class="tile"><div class="k">Winter alerts</div><div class="v">${sum.by_event.filter(e => /winter|blizzard|ice|snow|freez|cold|chill/i.test(e.event)).reduce((n, e) => n + e.count, 0)}</div><div class="s">storm · ice · blizzard · freeze</div></div>
       </div>
       <div class="grid g2" style="margin-top:12px">
@@ -182,7 +187,7 @@
                 <div class="s">${(l.alerts || []).slice(0, 3).map(a => `<span class="badge fill" style="background:${esc(a.color)}">${esc(a.event)}</span>`).join('') || '<span class="dim">no alerts</span>'}</div>` : `<div class="s err">${esc(l.error)}</div>`}
             </div>`).join('')}</div></div>
         <div class="card"><h2>Alert families</h2><div class="list">${sum.by_event.slice(0, 18).map(e => `<div class="row" data-ev="${esc(e.event)}"><span class="sw" style="background:${esc(e.color)}"></span><div class="body"><div class="t">${esc(e.event)}</div></div><div><b>${e.count}</b></div></div>`).join('')}</div></div>
-        <div class="card"><h2>Busiest states</h2><table><tbody>${sum.by_state.slice(0, 15).map(s => `<tr class="clickable" data-st="${esc(s.state)}"><td>${esc(s.state)}</td><td><div class="bar"><i style="width:${Math.min(100, s.count / (sum.by_state[0].count || 1) * 100)}%;background:var(--accent)"></i></div></td><td class="right">${s.count}</td></tr>`).join('')}</tbody></table></div>
+        <div class="card"><h2>Busiest states</h2><table><tbody>${sum.by_state.slice(0, 15).map(s => `<tr class="clickable" data-st="${esc(s.state)}"><td>${esc(s.state)}</td><td><div class="meter"><i style="width:${Math.min(100, s.count / (sum.by_state[0].count || 1) * 100)}%;background:var(--accent)"></i></div></td><td class="right">${s.count}</td></tr>`).join('')}</tbody></table></div>
         <div class="card span2"><h2>Trending on the weather desk <span class="spacer"></span><button class="small" data-go="news">news →</button></h2>${events.events && events.events.length ? `<div class="grid g3">${events.events.slice(0, 6).map(e => `<div class="tile"><div class="k">${esc(e.desk)} · z ${e.z}</div><div class="v" style="font-size:16px">${esc(e.label || e.subject)}</div><div class="s">${e.count} stories · ${(e.sources || []).slice(0, 4).map(esc).join(', ')}</div>${(e.stories || []).slice(0, 1).map(s => `<div class="s"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.headline)}</a></div>`).join('')}</div>`).join('')}</div>` : `<div class="empty">${events.configured === false ? 'newsroom not configured — set NEWSROOM_URL and NEWSROOM_TOKEN' : 'nothing trending right now'}</div>`}</div>
       </div>`;
     bindAlertRows(root);
@@ -316,12 +321,12 @@
     const torn = (S.summary ? S.summary.by_event : []).filter(e => /Tornado|Severe Thunderstorm/.test(e.event));
     root.innerHTML = `
       <div class="tiles">
-        ${[d1, d2, d3].map((d, i) => d ? `<div class="tile" style="border-color:${d.max_category ? spcColor(d.max_category) : 'var(--line)'}"><div class="k">SPC Day ${i + 1}</div><div class="v" style="font-size:17px;margin-top:6px">${esc(d.max_label)}</div><div class="s">${d.valid ? `valid ${esc(d.valid)} → ${esc(d.expire)}` : ''}</div></div>` : '').join('')}
+        ${[d1, d2, d3].map((d, i) => d ? `<div class="tile" style="border-color:${d.max_category ? spcColor(d.max_category) : 'var(--line)'}"><div class="k">SPC Day ${i + 1}</div><div class="v" style="font-size:17px;margin-top:6px">${esc(d.max_label)}</div><div class="s">${d.valid ? `valid ${spcTime(d.valid)} → ${spcTime(d.expire)}` : ''}</div></div>` : '').join('')}
         ${reps ? `<div class="tile ${reps.counts.tornado ? 'hot' : ''}"><div class="k">Tornado reports today</div><div class="v">${reps.counts.tornado}</div><div class="s">preliminary, LSR</div></div><div class="tile warm"><div class="k">Hail reports</div><div class="v">${reps.counts.hail}</div><div class="s">≥ 1 in</div></div><div class="tile warm"><div class="k">Wind reports</div><div class="v">${reps.counts.wind}</div><div class="s">≥ 58 mph or damage</div></div>` : ''}
         ${torn.map(e => `<div class="tile ${/Tornado Warning/.test(e.event) ? 'hot' : ''}"><div class="k">${esc(e.event)}</div><div class="v">${e.count}</div></div>`).join('')}
       </div>
       <div class="grid g2" style="margin-top:12px">
-        <div class="card"><h2>Day 1 categorical outlook <span class="spacer"></span><button class="small" id="sv-map">on the full map →</button></h2><div id="sv-minimap" class="minimap"></div><div class="small" style="margin-top:6px">${['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH'].map(c => `<span class="cat" style="background:${spcColor(c)}">${c}</span> `).join('')}</div></div>
+        <div class="card span2"><h2>Day 1 categorical outlook <span class="spacer"></span><button class="small" id="sv-map">on the full map →</button></h2><div id="sv-minimap" class="minimap"></div><div class="small" style="margin-top:6px">${['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH'].map(c => `<span class="cat" style="background:${spcColor(c)}">${c}</span> `).join('')}</div></div>
         <div class="card"><h2>Storm reports today <span class="spacer"></span>${reps ? stamp(reps) : ''}</h2><div class="scroll"><table><thead><tr><th>Z</th><th>type</th><th>mag</th><th>location</th><th>comments</th></tr></thead><tbody>${reps && reps.reports.length ? reps.reports.slice().reverse().slice(0, 300).map(r => `<tr><td>${esc(r.time_z)}</td><td><span class="badge ${r.kind === 'tornado' ? 'sev-Extreme' : r.kind === 'hail' ? 'acc' : 'sev-Severe'}">${esc(r.kind)}</span></td><td>${esc(r.magnitude || '')}</td><td>${esc(r.location)}, ${esc(r.county)} ${esc(r.state)}</td><td class="small">${esc(r.comments)}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">no reports yet today (reports day runs 12Z–12Z)</td></tr>'}</tbody></table></div></div>
         <div class="card"><h2>Mesoscale discussions</h2><div class="list scroll-sm">${disc && disc.mesoscale.items.length ? disc.mesoscale.items.slice(0, 20).map(i => `<a class="row" href="${esc(i.link)}" target="_blank" rel="noopener"><span class="sw" style="background:var(--warn)"></span><div class="body"><div class="t">${esc(i.title)}</div><div class="m">${esc(i.summary.slice(0, 220))}</div><div class="m">${fmt.ago(i.published_at)}</div></div></a>`).join('') : '<div class="empty">none active</div>'}</div></div>
         <div class="card"><h2>Watches</h2><div class="list scroll-sm">${disc && disc.watches.items.length ? disc.watches.items.slice(0, 20).map(i => `<a class="row" href="${esc(i.link)}" target="_blank" rel="noopener"><span class="sw" style="background:var(--svr)"></span><div class="body"><div class="t">${esc(i.title)}</div><div class="m">${esc(i.summary.slice(0, 220))}</div><div class="m">${fmt.ago(i.published_at)}</div></div></a>`).join('') : '<div class="empty">no watches</div>'}</div></div>
@@ -329,6 +334,7 @@
     $('#sv-map').onclick = () => { show('map'); mapReady().then(() => S.map.setLayer('spc', true)); };
     miniMap('sv-minimap', { spc: true, radar: false, alerts: false, reports: true }).catch(() => {});
   };
+  const spcTime = v => { const m = String(v || '').match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/); return m ? `${new Date(Date.UTC(+m[1], m[2] - 1, +m[3])).toLocaleDateString([], { month: 'short', day: 'numeric' })} ${m[4]}:${m[5]}Z` : esc(v || ''); };
   const spcColor = c => ({ TSTM: '#C1E9C1', MRGL: '#66A366', SLGT: '#FFE066', ENH: '#FFA366', MDT: '#E06666', HIGH: '#EE99EE' }[c] || '#888');
 
   // TROPICAL
@@ -364,18 +370,33 @@
   // WATER · FIRE
   views.water = async () => {
     const root = $('#view-water');
-    const [riv, fires, dr] = await Promise.all([api('/api/rivers?min=action').catch(e => ({ error: e.message, gauges: [], counts: {} })), api('/api/fires').catch(e => ({ inciweb: { incidents: [], error: e.message }, firms: { hotspots: [] } })), api('/api/drought').catch(e => ({ error: e.message }))]);
+    // Rivers can take a while on a cold cache (the national gauge list is a
+    // big download), so the page renders with fires + drought first and the
+    // river card fills in when its answer lands.
+    const riversP = api('/api/rivers?min=action').catch(e => ({ error: e.message, gauges: [], counts: {}, pending: false }));
+    const [fires, dr] = await Promise.all([api('/api/fires').catch(e => ({ inciweb: { incidents: [], error: e.message }, firms: { hotspots: [] } })), api('/api/drought').catch(e => ({ error: e.message }))]);
+    const riv = { counts: {}, gauges: [], pending: true };
     const c = riv.counts || {};
     const latest = dr.latest;
     root.innerHTML = `
-      <div class="tiles"><div class="tile ${c.major ? 'hot' : ''}"><div class="k">Major flooding</div><div class="v">${fmt.n(c.major)}</div><div class="s">gauges</div></div><div class="tile ${c.moderate ? 'warm' : ''}"><div class="k">Moderate</div><div class="v">${fmt.n(c.moderate)}</div></div><div class="tile"><div class="k">Minor</div><div class="v">${fmt.n(c.minor)}</div></div><div class="tile"><div class="k">Action stage</div><div class="v">${fmt.n(c.action)}</div><div class="s">of ${fmt.n(riv.total_gauges)} gauges</div></div><div class="tile"><div class="k">Wildfire incidents</div><div class="v">${fires.inciweb.incidents.filter(i => i.type === 'wildfire').length}</div><div class="s">InciWeb${fires.firms && fires.firms.count != null ? ` · ${fires.firms.count} FIRMS hotspots` : ''}</div></div>${latest ? `<div class="tile"><div class="k">US in drought (D1+)</div><div class="v">${(latest.d1).toFixed(1)}%</div><div class="s">${dr.previous ? `${(latest.d1 - dr.previous.d1) >= 0 ? '▲' : '▼'} ${Math.abs(latest.d1 - dr.previous.d1).toFixed(1)} vs last week` : ''}</div></div>` : ''}</div>
+      <div class="tiles"><div class="tile"><div class="k">Major flooding</div><div class="v">…</div><div class="s">gauges</div></div><div class="tile"><div class="k">Moderate</div><div class="v">…</div></div><div class="tile"><div class="k">Minor</div><div class="v">…</div></div><div class="tile"><div class="k">Action stage</div><div class="v">…</div><div class="s">loading gauges</div></div><div class="tile"><div class="k">Wildfire incidents</div><div class="v">${fires.inciweb.incidents.filter(i => i.type === 'wildfire').length}</div><div class="s">InciWeb${fires.firms && fires.firms.count != null ? ` · ${fires.firms.count} FIRMS hotspots` : ''}</div></div>${latest ? `<div class="tile"><div class="k">US in drought (D1+)</div><div class="v">${(latest.d1).toFixed(1)}%</div><div class="s">${dr.previous ? `${(latest.d1 - dr.previous.d1) >= 0 ? '▲' : '▼'} ${Math.abs(latest.d1 - dr.previous.d1).toFixed(1)} vs last week` : ''}</div></div>` : ''}</div>
       <div class="grid g2" style="margin-top:12px">
-        <div class="card"><h2>Rivers at or above flood stage <span class="spacer"></span>${stamp(riv)}</h2>${riv.error ? `<div class="err">${esc(riv.error)}</div>` : ''}<div class="scroll"><table><thead><tr><th>gauge</th><th>state</th><th>stage</th><th>category</th><th>forecast</th></tr></thead><tbody>${riv.gauges.slice(0, 400).map(g => `<tr class="clickable" data-g="${g.lat},${g.lon}"><td><a href="${esc(g.url)}" target="_blank" rel="noopener">${esc(g.name)}</a><br><span class="dim small">${esc(g.id)}</span></td><td>${esc(g.state || '')}</td><td>${fmt.n(g.observed.stage)} ${esc(g.observed.unit || 'ft')}${g.flood_stages && g.flood_stages.major ? `<br><span class="dim small">major ${g.flood_stages.major}</span>` : ''}</td><td><span class="badge fill" style="background:${esc(g.observed.color)}">${esc(g.observed.category)}</span></td><td>${g.forecast ? `${fmt.n(g.forecast.stage)} ${g.forecast.category ? `<span class="badge">${esc(g.forecast.category)}</span>` : ''}` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">no gauges above action stage</td></tr>'}</tbody></table></div></div>
+        <div class="card" id="wt-rivers"><h2>Rivers at or above flood stage</h2><div class="empty">loading the national gauge list…</div></div>
         <div class="card"><h2>Map · gauges in flood · fires</h2><div id="wt-minimap" class="minimap"></div></div>
+        <div class="card"><h2>NWS flood products in effect <span class="spacer"></span><span class="dim small">warnings · watches · advisories</span></h2><div class="list scroll-sm" id="wt-floodalerts"><div class="empty">loading…</div></div></div>
         <div class="card"><h2>Wildfire incidents (InciWeb) <span class="spacer"></span>${fires.inciweb.fetched_at ? stamp(fires.inciweb) : ''}</h2><div class="list scroll">${fires.inciweb.incidents.length ? fires.inciweb.incidents.slice(0, 60).map(i => `<a class="row" href="${esc(i.link)}" target="_blank" rel="noopener"><span class="sw" style="background:${i.type === 'wildfire' ? 'var(--fire)' : 'var(--dim)'}"></span><div class="body"><div class="t">${esc(i.title)}</div><div class="m">${i.acres != null ? `${i.acres.toLocaleString()} acres` : ''}${i.contained_pct != null ? ` · ${i.contained_pct}% contained` : ''} · ${fmt.ago(i.published_at)}</div><div class="m">${esc(i.summary.slice(0, 200))}</div></div></a>`).join('') : `<div class="empty">${fires.inciweb.error ? esc(fires.inciweb.error) : 'no incidents listed'}</div>`}</div></div>
-        <div class="card"><h2>US Drought Monitor ${latest ? `<span class="spacer"></span><span class="stamp dim">week of ${esc(String(latest.date).slice(0, 10))}</span>` : ''}</h2>${latest ? `<div class="bar" style="height:18px">${[['d4', '#730000'], ['d3', '#E60000'], ['d2', '#FFAA00'], ['d1', '#FCD37F'], ['d0', '#FFFF00']].map(([k, col]) => `<i title="${k.toUpperCase()} ${latest[k].toFixed(1)}%" style="width:${latest[k]}%;background:${col}"></i>`).join('')}</div><table style="margin-top:8px"><tbody>${['d0', 'd1', 'd2', 'd3', 'd4'].map(k => `<tr><td>${k.toUpperCase()} · ${esc(dr.categories[k.toUpperCase()])}</td><td class="right">${latest[k].toFixed(1)}%</td><td class="right dim">${dr.previous ? `${(latest[k] - dr.previous[k]) >= 0 ? '+' : ''}${(latest[k] - dr.previous[k]).toFixed(1)}` : ''}</td></tr>`).join('')}</tbody></table><p class="dim small">cumulative: D1 includes D2–D4, etc. Source: droughtmonitor.unl.edu</p>` : `<div class="empty">${esc(dr.error || 'unavailable')}</div>`}</div>
+        <div class="card"><h2>US Drought Monitor ${latest ? `<span class="spacer"></span><span class="stamp dim">week of ${esc(String(latest.date).slice(0, 10))}</span>` : ''}</h2>${latest ? `<div class="meter" style="height:18px">${[['d4', '#730000'], ['d3', '#E60000'], ['d2', '#FFAA00'], ['d1', '#FCD37F'], ['d0', '#FFFF00']].map(([k, col]) => `<i title="${k.toUpperCase()} ${latest[k].toFixed(1)}%" style="width:${latest[k]}%;background:${col}"></i>`).join('')}</div><table style="margin-top:8px"><tbody>${['d0', 'd1', 'd2', 'd3', 'd4'].map(k => `<tr><td>${k.toUpperCase()} · ${esc(dr.categories[k.toUpperCase()])}</td><td class="right">${latest[k].toFixed(1)}%</td><td class="right dim">${dr.previous ? `${(latest[k] - dr.previous[k]) >= 0 ? '+' : ''}${(latest[k] - dr.previous[k]).toFixed(1)}` : ''}</td></tr>`).join('')}</tbody></table><p class="dim small">cumulative: D1 includes D2–D4, etc. Source: droughtmonitor.unl.edu</p>` : `<div class="empty">${esc(dr.error || 'unavailable')}</div>`}</div>
       </div>`;
+    riversP.then(r => {
+      const card = $('#wt-rivers'); if (!card) return;
+      const cc = r.counts || {};
+      card.innerHTML = `<h2>Rivers at or above flood stage <span class="spacer"></span>${stamp(r)}</h2>${r.error ? `<div class="err">${esc(r.error)} — see the NWS flood products panel meanwhile</div>` : ''}<div class="scroll"><table><thead><tr><th>gauge</th><th>state</th><th>stage</th><th>category</th><th>forecast</th></tr></thead><tbody>${(r.gauges || []).slice(0, 400).map(g => `<tr class="clickable" data-g="${g.lat},${g.lon}"><td><a href="${esc(g.url)}" target="_blank" rel="noopener">${esc(g.name)}</a><br><span class="dim small">${esc(g.id)}</span></td><td>${esc(g.state || '')}</td><td>${fmt.n(g.observed.stage)} ${esc(g.observed.unit || 'ft')}${g.flood_stages && g.flood_stages.major ? `<br><span class="dim small">major ${g.flood_stages.major}</span>` : ''}</td><td><span class="badge fill" style="background:${esc(g.observed.color)}">${esc(g.observed.category)}</span></td><td>${g.forecast ? `${fmt.n(g.forecast.stage)} ${g.forecast.category ? `<span class="badge">${esc(g.forecast.category)}</span>` : ''}` : ''}</td></tr>`).join('') || (r.error ? '' : '<tr><td colspan="5" class="empty">no gauges above action stage</td></tr>')}</tbody></table></div>`;
+      $$('[data-g]', card).forEach(row => { row.onclick = () => { const [la, lo] = row.dataset.g.split(',').map(Number); if (S.wmini) S.wmini.map.setView([la, lo], 9); }; });
+      // Refresh the tiles with the real counts.
+      const tiles = $$('#view-water .tiles .tile .v'); if (tiles.length >= 4 && !r.error) { tiles[0].textContent = cc.major ?? '—'; tiles[1].textContent = cc.moderate ?? '—'; tiles[2].textContent = cc.minor ?? '—'; tiles[3].textContent = cc.action ?? '—'; const sub = $$('#view-water .tiles .tile .s')[3]; if (sub) sub.textContent = `of ${r.total_gauges} gauges`; }
+    });
     miniMap('wt-minimap', { rivers: true, fires: true, radar: false, alerts: true, spc: false }).then(m => { S.wmini = m; }).catch(() => {});
+    api('/api/alerts?event=flood&limit=200').then(d => { const box = $('#wt-floodalerts'); if (!box) return; box.innerHTML = d.alerts.length ? d.alerts.map(alertRow).join('') : '<div class="empty">no flood products in effect</div>'; bindAlertRows(box); }).catch(e => { const box = $('#wt-floodalerts'); if (box) box.innerHTML = `<div class="err">${esc(e.message)}</div>`; });
     $$('[data-g]', root).forEach(r => { r.onclick = () => { const [la, lo] = r.dataset.g.split(',').map(Number); if (S.wmini) S.wmini.map.setView([la, lo], 9); }; });
   };
 
@@ -385,7 +406,7 @@
     const d = await api('/api/space');
     const hist = d.kp.history.slice(-48);
     root.innerHTML = `
-      <div class="tiles"><div class="tile" style="border-color:${d.kp.color || 'var(--line)'}"><div class="k">Planetary Kp</div><div class="v">${d.kp.latest ? d.kp.latest.kp.toFixed(1) : '—'}</div><div class="s">${esc(d.kp.scale || '')} · ${d.kp.latest ? fmt.ago(d.kp.latest.time + 'Z') : ''}</div></div>
+      <div class="tiles"><div class="tile" style="border-color:${d.kp.color || 'var(--line)'}"><div class="k">Planetary Kp</div><div class="v">${d.kp.latest && d.kp.latest.kp != null ? d.kp.latest.kp.toFixed(1) : '—'}</div><div class="s">${esc(d.kp.scale || '')} · ${d.kp.latest ? fmt.ago(d.kp.latest.time + 'Z') : ''}</div></div>
         ${d.scales_now ? `<div class="tile"><div class="k">Geomagnetic</div><div class="v">G${esc(d.scales_now.geomagnetic.Scale)}</div><div class="s">${esc(d.scales_now.geomagnetic.Text)}</div></div><div class="tile"><div class="k">Solar radiation</div><div class="v">S${esc(d.scales_now.radiation.Scale)}</div><div class="s">${esc(d.scales_now.radiation.Text)}</div></div><div class="tile"><div class="k">Radio blackout</div><div class="v">R${esc(d.scales_now.radio_blackout.Scale)}</div><div class="s">${esc(d.scales_now.radio_blackout.Text)}</div></div>` : ''}
         ${d.solar_wind ? `<div class="tile"><div class="k">Solar wind</div><div class="v">${fmt.n(d.solar_wind.speed_kms)}</div><div class="s">km/s · density ${fmt.n(d.solar_wind.density)} p/cm³</div></div>` : ''}</div>
       <div class="grid g2" style="margin-top:12px">
@@ -521,7 +542,7 @@
     play() { const r = this.radar; clearInterval(r.timer); if (!r.playing) return; r.timer = setInterval(() => { r.idx = (r.idx + 1) % r.frames.length; this.showFrame(); }, r.idx === r.frames.length - 1 ? 1600 : 520); }
     renderTimebar() {
       if (this.opts.mini) return; const r = this.radar; const tb = $('#map-timebar'); if (!tb) return;
-      tb.innerHTML = `<button class="small" id="tb-play">${r.playing ? '❚❚' : '▶'}</button><input type="range" id="tb-range" min="0" max="${r.frames.length - 1}" value="${r.idx}"><span id="tb-label">${fmt.clock(r.frames[r.idx].time)}</span><span class="dim">· ${r.frames.length} frames · ${fmt.ago(r.frames[0].time)} → +${Math.round((Date.parse(r.frames[r.frames.length - 1].time) - Date.now()) / 60000)}m</span>`;
+      tb.innerHTML = `<button class="small" id="tb-play">${r.playing ? '❚❚' : '▶'}</button><input type="range" id="tb-range" min="0" max="${r.frames.length - 1}" value="${r.idx}"><span id="tb-label">${fmt.clock(r.frames[r.idx].time)}</span><span class="dim">· ${r.frames.length} frames · ${fmt.clock(r.frames[0].time)} → ${fmt.clock(r.frames[r.frames.length - 1].time)}${r.frames.some(f => f.nowcast) ? ' (incl. nowcast)' : ''}</span>`;
       $('#tb-play').onclick = () => { r.playing = !r.playing; $('#tb-play').textContent = r.playing ? '❚❚' : '▶'; this.play(); };
       $('#tb-range').oninput = e => { r.playing = false; $('#tb-play').textContent = '▶'; clearInterval(r.timer); r.idx = +e.target.value; this.showFrame(); };
     }
@@ -547,7 +568,7 @@
     async loadSpc() {
       const d = await api(`/api/spc/outlook?day=${this.spcDay}`); const g = this.groups.spc; g.clearLayers();
       const cat = d.layers.cat; if (!cat || !cat.features) return;
-      this.L.geoJSON(cat, { style: f => ({ color: f.properties.color, weight: 1.5, fillColor: f.properties.color, fillOpacity: 0.18, dashArray: '4 3' }), onEachFeature: (f, l) => l.bindPopup(`<b>SPC Day ${d.day}: ${esc(f.properties.label2 || f.properties.label)}</b><br>valid ${esc(f.properties.valid)} → ${esc(f.properties.expire)}`), interactive: !this.opts.mini }).addTo(g);
+      this.L.geoJSON(cat, { style: f => ({ color: f.properties.color, weight: 1.5, fillColor: f.properties.color, fillOpacity: 0.18, dashArray: '4 3' }), onEachFeature: (f, l) => l.bindPopup(`<b>SPC Day ${d.day}: ${esc(f.properties.label2 || f.properties.label)}</b><br>valid ${spcTime(f.properties.valid)} → ${spcTime(f.properties.expire)}`), interactive: !this.opts.mini }).addTo(g);
       const torn = d.layers.torn; if (torn && torn.features && torn.features.length) this.L.geoJSON(torn, { style: f => ({ color: '#FF2D2D', weight: 1, fillColor: '#FF2D2D', fillOpacity: 0.08 }), onEachFeature: (f, l) => l.bindPopup(`Tornado probability ${esc(f.properties.label2 || f.properties.label)}`) }).addTo(g);
     }
     async loadQuakes() {
@@ -588,7 +609,7 @@
   async function mapReady() {
     const L = await loadLeaflet();
     if (!S.map) {
-      S.map = new WeatherMap(L, 'map', { center: [38.5, -96.5], zoom: 4, spc: false, quakes: false, reports: false, rivers: false, fires: false });
+      S.map = new WeatherMap(L, 'mapcanvas', { center: [38.5, -96.5], zoom: 4, spc: false, quakes: false, reports: false, rivers: false, fires: false });
       renderLayerPanel();
       clearInterval(S.timers.map); S.timers.map = setInterval(() => { if (S.view === 'map') S.map.refreshAll(); }, 3 * 60 * 1000);
     }

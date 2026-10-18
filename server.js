@@ -249,7 +249,11 @@ process.on('uncaughtException', err => console.error('uncaughtException:', err &
 if (!POLL_DISABLED) {
   newsroom.start(NEWSROOM_POLL_MS);
   // Keep the national picture warm so the first page load is instant.
-  const warm = () => { alerts.load().catch(() => {}); tropical.storms().catch(() => {}); spc.outlook(1).catch(() => {}); };
+  // The NWPS gauge list and CO-OPS station list are the two big downloads;
+  // fetching them at boot means the first WATER view and coastal forecast
+  // don't wait on them.
+  const warm = () => { alerts.load().catch(() => {}); tropical.storms().catch(() => {}); spc.outlook(1).catch(() => {}); hazards.gauges().catch(() => {}); radar.frames().catch(() => {}); };
+  setTimeout(() => tides.stations().catch(() => {}), 5000).unref();
   setTimeout(warm, 500).unref();
   setInterval(warm, 2 * 60 * 1000).unref();
 }

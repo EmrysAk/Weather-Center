@@ -35,7 +35,7 @@ function normalizeGauge(g) {
 
 async function gauges() {
   const { data, fetched_at, stale, error } = await cached('nwps:gauges', 20 * MIN, async () => {
-    const j = await fetchJson('https://api.water.noaa.gov/nwps/v1/gauges', { source: 'nwps-gauges', timeout: 40000 });
+    const j = await fetchJson('https://api.water.noaa.gov/nwps/v1/gauges', { source: 'nwps-gauges', timeout: 90000 });
     return (j.gauges || []).map(normalizeGauge).filter(g => g.lat != null);
   }, { staleMs: 6 * 60 * MIN });
   return { fetched_at, stale, error, gauges: data };

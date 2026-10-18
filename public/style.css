@@ -69,7 +69,7 @@ code, .mono { font-family:inherit; }
 main { padding:14px 16px 60px; max-width:1600px; margin:0 auto; }
 .view { display:none; }
 .view.on { display:block; }
-.grid { display:grid; gap:12px; }
+.grid { display:grid; gap:12px; align-items:start; }
 .g2 { grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); }
 .g3 { grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); }
 .g4 { grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); }
@@ -137,7 +137,7 @@ tr.clickable:hover td { background:var(--surface2); }
 
 /* ── Map ───────────────────────────────────────────────────────────── */
 .mapwrap { position:relative; }
-#map, .minimap { height:calc(100vh - 230px); min-height:420px; border-radius:8px; background:#07090c; border:1px solid var(--line); }
+#mapcanvas, .minimap { height:calc(100vh - 230px); min-height:420px; border-radius:8px; background:#07090c; border:1px solid var(--line); }
 .minimap { height:380px; }
 .leaflet-container { font:inherit; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:var(--surface); color:var(--text); }
@@ -160,8 +160,8 @@ tr.clickable:hover td { background:var(--surface2); }
 .now .big { font-size:64px; font-weight:700; line-height:1; }
 .now .glyph { font-size:54px; }
 .now .desc { font-size:15px; }
-.now .facts { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:6px 14px; margin-top:8px; font-size:12px; }
-.now .facts .k { color:var(--dim); font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+.facts { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:6px 14px; margin-top:8px; font-size:12px; }
+.facts .k { color:var(--dim); font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
 canvas.chart { width:100%; height:200px; display:block; }
 .days { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:8px; }
 .day { background:var(--surface2); border:1px solid var(--line); border-radius:7px; padding:8px; text-align:center; }
@@ -178,8 +178,8 @@ canvas.chart { width:100%; height:200px; display:block; }
 .aqi { display:inline-block; padding:2px 8px; border-radius:4px; font-weight:700; color:#111; }
 .kp { display:flex; gap:2px; align-items:flex-end; height:60px; }
 .kp i { flex:1; display:block; background:var(--good); border-radius:2px 2px 0 0; min-height:2px; }
-.bar { height:10px; border-radius:5px; background:var(--surface2); overflow:hidden; display:flex; }
-.bar i { display:block; height:100%; }
+.meter { height:10px; border-radius:5px; background:var(--surface2); overflow:hidden; display:flex; }
+.meter i { display:block; height:100%; }
 .cat { display:inline-block; padding:2px 8px; border-radius:4px; font-weight:700; color:#111; }
 .brief pre { white-space:pre-wrap; font:inherit; font-size:12.5px; line-height:1.5; background:var(--surface2); border:1px solid var(--line); border-radius:6px; padding:14px 16px; max-height:70vh; overflow:auto; }
 .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--accent); color:var(--text); padding:8px 14px; border-radius:6px; z-index:200; font-size:12px; box-shadow:var(--shadow); }

@@ -14,7 +14,12 @@ async function summary() {
   const parts = await Promise.allSettled([
     cached('swpc:kp', 15 * MIN, async () => {
       const rows = await fetchJson(`${S}/products/noaa-planetary-k-index.json`, { source: 'swpc' });
-      return rows.slice(1).map(r => ({ time: r[0], kp: parseFloat(r[1]), a_running: r[2] != null ? parseFloat(r[2]) : null, station_count: r[3] != null ? parseInt(r[3], 10) : null })).slice(-96);
+      // Two shapes seen from SWPC: a header row + arrays, or objects.
+      const list = Array.isArray(rows) ? rows : [];
+      const parsed = list.map(r => Array.isArray(r)
+        ? { time: r[0], kp: parseFloat(r[1]), a_running: r[2] != null ? parseFloat(r[2]) : null, station_count: r[3] != null ? parseInt(r[3], 10) : null }
+        : { time: r.time_tag, kp: parseFloat(r.kp_index ?? r.Kp ?? r.kp), a_running: r.a_running != null ? parseFloat(r.a_running) : null, station_count: r.station_count != null ? parseInt(r.station_count, 10) : null });
+      return parsed.filter(x => x.time && Number.isFinite(x.kp)).slice(-96);
     }),
     cached('swpc:alerts', 10 * MIN, async () => {
       const rows = await fetchJson(`${S}/products/alerts.json`, { source: 'swpc' });
@@ -23,9 +28,10 @@ async function summary() {
     cached('swpc:3day', 60 * MIN, async () => fetchText(`${S}/text/3-day-forecast.txt`, { source: 'swpc' })),
     cached('swpc:scales', 15 * MIN, async () => fetchJson(`${S}/products/noaa-scales.json`, { source: 'swpc' })),
     cached('swpc:wind', 10 * MIN, async () => {
-      const rows = await fetchJson(`${S}/products/solar-wind/plasma-1-day.json`, { source: 'swpc' });
-      const last = rows[rows.length - 1] || [];
-      return { time: last[0], density: last[1] != null ? parseFloat(last[1]) : null, speed_kms: last[2] != null ? parseFloat(last[2]) : null, temperature_k: last[3] != null ? parseFloat(last[3]) : null };
+      // Real-time solar wind (DSCOVR/ACE), newest first.
+      const rows = await fetchJson(`${S}/json/rtsw/rtsw_wind_1m.json`, { source: 'swpc' });
+      const last = (Array.isArray(rows) ? rows : []).find(r => r && r.proton_speed != null) || {};
+      return { time: last.time_tag || null, density: last.proton_density != null ? parseFloat(last.proton_density) : null, speed_kms: last.proton_speed != null ? parseFloat(last.proton_speed) : null, temperature_k: last.proton_temperature != null ? parseFloat(last.proton_temperature) : null, source: last.source || null };
     }),
   ]);
   const [kp, alerts, forecast, scales, wind] = parts.map(p => p.status === 'fulfilled' ? p.value.data : null);
