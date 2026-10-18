@@ -39,7 +39,8 @@
     const r = await fetch(path, { ...opts, headers: { Authorization: `Bearer ${S.token}`, ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(opts.headers || {}) } });
     if (r.status === 401 || r.status === 503) { if (r.status === 401) { showAuth(r.status === 401 ? 'token rejected' : ''); } }
     let body; try { body = await r.json(); } catch { body = { error: await r.text() }; }
-    dot('api', r.status < 500 ? 'ok' : 'bad');
+    // The API dot is this server's own health: a 502/504 means an outside source was down, not us.
+    dot('api', r.status < 500 || r.status === 502 || r.status === 504 ? 'ok' : 'bad');
     if (!r.ok) { const e = new Error(body.error || `HTTP ${r.status}`); e.status = r.status; e.body = body; throw e; }
     return body;
   }
