@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weather Center</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  var t = localStorage.getItem('wc_theme');
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <div class="brand">
+      <h1>WEATHER <b>CENTER</b></h1>
+      <span class="clock" id="clock">—</span>
+    </div>
+    <div class="status-dots" id="dots">
+      <span><i class="dot" id="dot-nws"></i>NWS</span>
+      <span><i class="dot" id="dot-newsroom"></i>NEWSROOM</span>
+      <span><i class="dot" id="dot-api"></i>API</span>
+    </div>
+    <div class="toolbar" style="margin:0">
+      <input id="quick" placeholder="place, ZIP or lat,lon → forecast" style="min-width:260px">
+      <button id="quick-go" class="primary">GO</button>
+      <button id="units-btn" class="small" title="toggle units">°F · mph</button>
+      <button id="theme-btn" class="small" title="toggle theme">◐</button>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-view="now" class="on">NOW</button>
+    <button data-view="map">MAP</button>
+    <button data-view="alerts" id="tab-alerts">ALERTS <span class="n" id="n-alerts">–</span></button>
+    <button data-view="forecast">FORECAST</button>
+    <button data-view="severe">SEVERE <span class="n" id="n-severe">–</span></button>
+    <button data-view="tropical">TROPICAL <span class="n" id="n-tropical">–</span></button>
+    <button data-view="quakes">QUAKES</button>
+    <button data-view="water">WATER · FIRE</button>
+    <button data-view="space">SPACE</button>
+    <button data-view="news">NEWS</button>
+    <button data-view="briefing">BRIEFING</button>
+    <button data-view="status">STATUS</button>
+  </nav>
+  <div class="ticker"><div class="track" id="ticker"><span class="item dim">loading the national picture…</span></div></div>
+</header>
+
+<section class="auth-wall hidden" id="auth-wall">
+  <div class="card">
+    <h2>ACCESS TOKEN</h2>
+    <p class="dim small">This console is private. Paste the token minted for you on this server (<code>node scripts/make-token.js "name"</code>). It is kept in this browser only.</p>
+    <input id="token-input" type="password" placeholder="token" autocomplete="off">
+    <button id="token-save" class="primary">CONNECT</button>
+    <span id="token-msg" class="err small"></span>
+  </div>
+</section>
+
+<main id="main" class="hidden">
+  <section class="view on" id="view-now"></section>
+  <section class="view" id="view-map">
+    <div class="mapwrap">
+      <div id="map"></div>
+      <div class="legend" id="map-legend"></div>
+      <div class="layers" id="map-layers"></div>
+      <div class="timebar" id="map-timebar"></div>
+    </div>
+  </section>
+  <section class="view" id="view-alerts"></section>
+  <section class="view" id="view-forecast"></section>
+  <section class="view" id="view-severe"></section>
+  <section class="view" id="view-tropical"></section>
+  <section class="view" id="view-quakes"></section>
+  <section class="view" id="view-water"></section>
+  <section class="view" id="view-space"></section>
+  <section class="view" id="view-news"></section>
+  <section class="view" id="view-briefing"></section>
+  <section class="view" id="view-status"></section>
+  <p class="footer">Weather Center · primary sources: NWS · SPC · NHC · USGS · NWPS · InciWeb · USDM · AviationWeather · CO-OPS · SWPC · RainViewer · Open-Meteo — news via the Newsroom Search Engine</p>
+</main>
+
+<aside class="drawer" id="drawer">
+  <button class="close small" id="drawer-close">✕ close</button>
+  <div id="drawer-body"></div>
+</aside>
+
+<script src="/app.js"></script>
+</body>
+</html>

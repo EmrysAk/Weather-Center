@@ -1,0 +1,6 @@
+node_modules/
+.env
+data/tokens.json
+data/cache/
+data/mirror/
+data/watch.json

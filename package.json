@@ -1,0 +1,15 @@
+{
+  "name": "weather-center",
+  "version": "0.1.0",
+  "description": "Weather Center: the newsroom's weather desk as a live operations console — NWS alerts, radar and satellite, point forecasts, SPC severe outlooks and storm reports, NHC tropical systems, USGS earthquakes, river flooding, wildfire, drought, aviation, tides and space weather — fed by the Newsroom Search Engine's weather desk and serving briefings to the Newsroom Reporters.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
