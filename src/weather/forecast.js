@@ -16,6 +16,20 @@
 // observations 10 minutes, Open-Meteo 15 minutes.
 
 const { fetchJson, cached } = require('../fetch');
+
+// Open-Meteo rejects bursts (HTTP 429) — the watched-locations board asks
+// for ten forecasts at once on a cold start. All Open-Meteo calls go through
+// a gate of three in flight; a 429 waits 1.5 s and tries once more.
+const OM_MAX_INFLIGHT = 3;
+let omInflight = 0; const omWaiters = [];
+async function omFetch(url, source) {
+  if (omInflight >= OM_MAX_INFLIGHT) await new Promise(r => omWaiters.push(r));
+  omInflight++;
+  try {
+    try { return await fetchJson(url, { source }); }
+    catch (e) { if (!/HTTP 429/.test(e.message)) throw e; await new Promise(r => setTimeout(r, 1500)); return await fetchJson(url, { source }); }
+  } finally { omInflight--; const next = omWaiters.shift(); if (next) next(); }
+}
 const geo = require('../geo');
 
 const MIN = 60 * 1000;
@@ -124,7 +138,7 @@ async function openMeteo(lat, lon, { days = 7 } = {}) {
   const key = `om:${lat.toFixed(3)},${lon.toFixed(3)}:${days}`;
   const { data, stale } = await cached(key, 15 * MIN, async () => {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=${OM_CURRENT}&hourly=${OM_HOURLY}&daily=${OM_DAILY}&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=${days}&past_hours=6`;
-    const j = await fetchJson(url, { source: 'open-meteo' });
+    const j = await omFetch(url, 'open-meteo');
     const H = j.hourly || {}, D = j.daily || {}, C = j.current || {};
     const hours = (H.time || []).map((t, i) => ({
       time: t, temp_f: H.temperature_2m[i], feels_f: H.apparent_temperature[i], humidity: H.relative_humidity_2m[i], dewpoint_f: H.dew_point_2m[i],
@@ -159,7 +173,7 @@ async function airQuality(lat, lon) {
   const key = `aq:${lat.toFixed(3)},${lon.toFixed(3)}`;
   const { data, stale } = await cached(key, 30 * MIN, async () => {
     const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,dust,uv_index&hourly=us_aqi,pm2_5,ozone&forecast_days=2&timezone=auto`;
-    const j = await fetchJson(url, { source: 'open-meteo-air' });
+    const j = await omFetch(url, 'open-meteo-air');
     const C = j.current || {}, H = j.hourly || {};
     return {
       current: { time: C.time, aqi: C.us_aqi, band: aqiBand(C.us_aqi), pm2_5: C.pm2_5, pm10: C.pm10, o3: C.ozone, no2: C.nitrogen_dioxide, so2: C.sulphur_dioxide, co: C.carbon_monoxide, dust: C.dust, uv: C.uv_index },
